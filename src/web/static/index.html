@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FX Auto-Bot Dashboard</title>
+    <meta name="description" content="Real-time Forex trading bot dashboard with AI-powered sentiment analysis and economic calendar.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=10">
+</head>
+<body>
+    <div class="bg-shape shape-1"></div>
+    <div class="bg-shape shape-2"></div>
+    <div class="bg-shape shape-3"></div>
+
+    <!-- ── AI Settings Modal ──────────────────────────────────────── -->
+    <div id="ai-modal-overlay" class="modal-overlay" onclick="closeAIModal()">
+        <div class="modal-box" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2>AI Co-Pilot Settings</h2>
+                <button class="modal-close" onclick="closeAIModal()">&times;</button>
+            </div>
+
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Provider</label>
+                    <select id="ai-provider-select" onchange="updateModelOptions()">
+                        <option value="gemini">Google Gemini</option>
+                        <option value="openai">OpenAI (ChatGPT)</option>
+                        <option value="anthropic">Anthropic (Claude)</option>
+                        <option value="openrouter">OpenRouter (Any Model)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Model</label>
+                    <select id="ai-model-select"></select>
+                </div>
+
+                <div class="form-group">
+                    <label>API Key <span id="key-status-badge" class="key-badge key-not-set">Not Set</span></label>
+                    <input type="password" id="ai-api-key-input" placeholder="Paste your API key here...">
+                    <small class="form-hint" id="ai-key-hint">Get free Gemini key: <a href="https://aistudio.google.com/app/apikey" target="_blank">aistudio.google.com</a></small>
+                </div>
+
+                <div class="form-group">
+                    <label>Monthly Budget Cap (USD)</label>
+                    <input type="number" id="ai-budget-input" value="5.00" min="0.10" step="0.50">
+                    <small class="form-hint">Bot stops using AI when this limit is reached. Resets each month automatically.</small>
+                </div>
+
+                <div class="ai-spend-bar-wrap">
+                    <div class="ai-spend-label">
+                        <span>This Month's Spend</span>
+                        <span id="ai-spend-text">$0.0000 / $5.00</span>
+                    </div>
+                    <div class="ai-spend-bar-bg">
+                        <div class="ai-spend-bar-fill" id="ai-spend-bar"></div>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button class="btn-secondary" onclick="resetAISpend()">Reset Spend Counter</button>
+                    <button class="btn-secondary" id="btn-test-ai" onclick="testAISettings()" style="border: 1px solid var(--accent); color: var(--accent);">Test Connection</button>
+                    <button class="btn-primary" onclick="saveAISettings()">Save Settings</button>
+                </div>
+                <div id="ai-test-result" style="margin-top: 1rem; font-size: 0.85rem; display: none; padding: 12px; border-radius: 8px; font-weight: 500; text-align: center; border: 1px solid rgba(255,255,255,0.1);"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- ── Header ────────────────────────────────────────────── -->
+        <header class="glass-panel header">
+            <div class="logo">
+                <div class="logo-icon"></div>
+                <h1>FX Auto-Bot</h1>
+            </div>
+
+            <div class="account-info">
+                <div class="acc-item">
+                    <small>Balance</small>
+                    <b id="acc-balance">...</b>
+                </div>
+                <div class="acc-item">
+                    <small>Equity</small>
+                    <b id="acc-equity">...</b>
+                </div>
+                <div class="acc-item">
+                    <small>Free Margin</small>
+                    <b id="acc-margin">...</b>
+                </div>
+            </div>
+
+            <div class="header-controls">
+                <button class="btn-icon" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Theme">
+                    <!-- Moon icon -->
+                    <svg class="moon-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                    <!-- Sun icon -->
+                    <svg class="sun-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none;"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                </button>
+
+                <button class="btn-icon" id="ai-settings-btn" onclick="openAIModal()" title="AI Settings">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                    <span id="ai-dot" class="ai-status-dot"></span>
+                </button>
+
+                <div class="trading-toggle">
+                    <span>Auto Trading</span>
+                    <label class="switch">
+                        <input type="checkbox" id="auto-trade-toggle" onchange="toggleAutoTrade()">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+
+                <div class="status-indicator">
+                    <div class="pulse" id="status-pulse"></div>
+                    <span id="status-text">Connecting...</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- ── KPI Cards ─────────────────────────────────────────── -->
+        <section class="kpi-grid">
+            <div class="glass-panel kpi-card">
+                <h3>Today's P&L</h3>
+                <div class="value pnl" id="kpi-pnl">$0.00</div>
+            </div>
+            <div class="glass-panel kpi-card">
+                <h3>Win Rate</h3>
+                <div class="value" id="kpi-winrate">0.0%</div>
+            </div>
+            <div class="glass-panel kpi-card">
+                <h3>Open Trades</h3>
+                <div class="value" id="kpi-open">0</div>
+            </div>
+            <div class="glass-panel kpi-card">
+                <h3>Active Pairs</h3>
+                <div class="pairs-container" id="pairs-list"></div>
+                <div class="add-pair-box">
+                    <input type="text" id="new-pair-input" placeholder="e.g. USDJPY" maxlength="10">
+                    <button id="add-pair-btn">+</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── Trades Grid ────────────────────────────────────────── -->
+        <div class="tables-grid">
+            <section class="glass-panel table-section">
+                <div class="section-header">
+                    <h2>Active Positions</h2>
+                    <span class="badge" id="open-badge">0</span>
+                </div>
+                <div class="table-container">
+                    <table id="open-trades-table">
+                        <thead><tr>
+                            <th>Pair</th><th>Dir</th><th>Lot</th>
+                            <th>Entry</th><th>SL</th><th>TP</th><th>Score</th><th>Action</th>
+                        </tr></thead>
+                        <tbody></tbody>
+                    </table>
+                    <div class="empty-state" id="open-empty" style="display:none">
+                        <svg class="empty-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
+                        <p class="empty-title">No Active Positions</p>
+                        <span class="empty-hint">Scanning active pairs for entry signals...</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="glass-panel table-section">
+                <div class="section-header">
+                    <h2>Recent History</h2>
+                </div>
+                <div class="table-container">
+                    <table id="history-trades-table">
+                        <thead><tr>
+                            <th>Pair</th><th>Dir</th><th>Lot</th><th>P&L</th><th>Reason</th>
+                        </tr></thead>
+                        <tbody></tbody>
+                    </table>
+                    <div class="empty-state" id="history-empty" style="display:none">
+                        <svg class="empty-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        <p class="empty-title">No Closed Trades Yet</p>
+                        <span class="empty-hint">Completed trades will appear here with coaching reviews.</span>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+
+        <!-- ── Live Scanner Activity ─────────────────────────────────── -->
+        <div class="tables-grid" style="grid-template-columns: 1fr; margin-top: 1.5rem;">
+            <section class="glass-panel table-section">
+                <div class="section-header">
+                    <h2>Live Scanner Activity</h2>
+                    <span style="font-size: 0.75rem; color: var(--text-muted); margin-right: auto;">Real-time strategy scanner evaluations</span>
+                    <div class="scanner-actions">
+                        <span id="scanner-last-updated" style="font-size:0.72rem;color:var(--text-muted);align-self:center;"></span>
+                        <button class="btn-accent-sm" id="btn-run-scan" onclick="triggerManualScan()" title="Trigger On-Demand Scan">Scan Now</button>
+                        <button class="btn-secondary-sm" id="btn-refresh-scanner" onclick="refreshScannerActivity()" title="Refresh Scanner Activity">Refresh</button>
+                        <button class="btn-danger-sm" id="btn-clear-scanner" onclick="clearScannerActivity()" title="Clear Scanner Logs">Clear Log</button>
+                    </div>
+                </div>
+                <div class="table-container" style="max-height: 300px; overflow-y: auto;">
+                    <table id="scanner-activity-table">
+                        <thead><tr>
+                            <th>Time</th><th>Pair</th><th>Score</th><th>Trend</th><th>Struct</th><th>Liq</th><th>Mom</th><th>Sess</th><th>Direction / Status</th>
+                        </tr></thead>
+                        <tbody></tbody>
+                    </table>
+                    <div class="empty-state" id="scanner-empty" style="display:none">
+                        <svg class="empty-icon animate-pulse-glow" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                        <p class="empty-title">Waiting for Scanner Data</p>
+                        <span class="empty-hint">Bot will evaluate strategy signals shortly.</span>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- ── AI Co-Pilot ────────────────────────────────────────── -->
+        <div class="tables-grid" style="grid-template-columns: 1fr 1fr; margin-top: 1.5rem;">
+            <section class="glass-panel table-section">
+                <div class="section-header">
+                    <h2>AI Sentiment Signals</h2>
+                    <span class="ai-provider-badge" id="ai-provider-badge">Gemini</span>
+                </div>
+                <div id="ai-signals-container" style="max-height: 280px; overflow-y: auto; padding: 0 4px;">
+                    <div class="empty-state" id="ai-signals-empty">
+                        <svg class="empty-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                        <p class="empty-title">No AI Signals Yet</p>
+                        <span class="empty-hint">Configure your AI API key in settings to activate.</span>
+                    </div>
+                </div>
+            </section>
+            <section class="glass-panel table-section">
+                <div class="section-header">
+                    <h2>AI Trade Post-Mortems</h2>
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Auto-generated after each close</span>
+                </div>
+                <div id="ai-postmortems-container" style="max-height: 280px; overflow-y: auto; padding: 0 4px;">
+                    <div class="empty-state" id="ai-postmortems-empty">
+                        <svg class="empty-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                        <p class="empty-title">No Coaching Notes Yet</p>
+                        <span class="empty-hint">AI coaching reviews appear here after each closed position.</span>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- ── News & Calendar ────────────────────────────────────── -->
+        <div class="tables-grid" style="grid-template-columns: 1fr 1fr; margin-top: 1.5rem;">
+            <section class="glass-panel table-section">
+                <div class="section-header">
+                    <h2>Market News</h2>
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Live from MT5</span>
+                </div>
+                <div id="news-container" style="max-height: 340px; overflow-y: auto; padding: 0 4px;">
+                    <div class="empty-state" id="news-empty">Loading news from MT5...</div>
+                </div>
+            </section>
+
+            <section class="glass-panel table-section">
+                <div class="section-header" style="justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <h2>Economic Calendar</h2>
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">Today's events</span>
+                    </div>
+                    <div class="calendar-filters">
+                        <select id="cal-impact-filter" onchange="filterCalendar()" class="filter-select">
+                            <option value="ALL">All Impacts</option>
+                            <option value="HIGH">High Impact</option>
+                            <option value="MEDIUM">Medium Impact</option>
+                        </select>
+                        <select id="cal-currency-filter" onchange="filterCalendar()" class="filter-select">
+                            <option value="ALL">All Currencies</option>
+                            <option value="USD">USD</option>
+                            <option value="EUR">EUR</option>
+                            <option value="GBP">GBP</option>
+                            <option value="JPY">JPY</option>
+                            <option value="AUD">AUD</option>
+                            <option value="NZD">NZD</option>
+                            <option value="CAD">CAD</option>
+                            <option value="CHF">CHF</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="calendar-container" style="max-height: 340px; overflow-y: auto; padding: 0 4px;">
+                    <div class="empty-state" id="calendar-empty">
+                        <svg class="empty-icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                        <p class="empty-title">Loading Calendar...</p>
+                        <span class="empty-hint">Fetching macroeconomic event schedules.</span>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script src="script.js?v=10"></script>
+</body>
+</html>

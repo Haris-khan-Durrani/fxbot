@@ -1,0 +1,25 @@
+# Secrets — never commit
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# Data & logs
+data/historical/*.csv
+logs/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp

@@ -1,0 +1,145 @@
+# ─────────────────────────────────────────────────────────────────
+# Forex Bot — Master Configuration
+# All strategy/risk parameters live here — NEVER hardcoded in code.
+# ─────────────────────────────────────────────────────────────────
+
+bot:
+  version: "1.0.0"
+  name: "FX Auto-Bot (Demo)"
+  log_level: "INFO"           # DEBUG | INFO | WARNING | ERROR
+  loop_interval_seconds: 5    # Main loop tick interval
+
+# ── Trading Safety ────────────────────────────────────────────────
+trading:
+  live_trading_enabled: false   # MUST stay false until manual review after 4 weeks demo
+  demo_only_assert: true        # Hard crash if account is not demo type
+
+# ── Symbols ───────────────────────────────────────────────────────
+# Phase 0 priority: EURUSD (robust), XAUUSD (monitor), GBPUSD (paper-trade first)
+symbols:
+  - XAUUSD
+  - EURUSD
+  - GBPUSD
+
+# ── Strategy Parameters ───────────────────────────────────────────
+strategy:
+  trend:
+    ema_fast: 50
+    ema_slow: 200
+    timeframe: "H1"
+    ema_min_separation_atr_ratio: 0.005  # EMA gap must be > 0.5% of ATR(200) to avoid whipsaw
+
+  entry:
+    timeframe: "M15"
+
+  structure:
+    bos_lookback_bars: 20        # Bars to look back for swing highs/lows
+    bos_confirmation_bars: 1     # Bars price must close beyond swing to confirm BOS (optimized from 2 -> reduces lag)
+    bos_min_break_atr_ratio: 0.10  # Break distance must be ≥ 10% of ATR(14) — filters noise/spread
+
+  liquidity:
+    sweep_lookback_bars: 20      # Bars to look back for swing highs/lows to sweep (unified with bos_lookback_bars)
+    sweep_wick_ratio: 0.5        # Wick must be at least 50% of candle range
+    sweep_reversal_pips: 3.0     # Minimum reversal after sweep (in pips)
+
+  momentum:
+    rsi_period: 14
+    rsi_oversold: 30
+    rsi_overbought: 70
+    rsi_mid: 50                  # Midpoint: above = BULLISH_NEUTRAL (0.8 for BUY), below = BEARISH_NEUTRAL (0.5 for BUY)
+    rsi_neutral_low: 40          # Legacy — kept for backtest compatibility
+    rsi_neutral_high: 60         # Legacy — kept for backtest compatibility
+
+  session:
+    london_open: "08:00"         # In broker server time
+    london_close: "17:00"
+    ny_open: "13:00"
+    ny_close: "22:00"
+    trade_only_in_session: true  # If false, session just adds score weight
+
+# ── Signal Scoring ────────────────────────────────────────────────
+scoring:
+  min_score: 65                  # Phase 1 validated: 65 unlocks high-prob setups while maintaining 1.43 PF on XAUUSD
+  weights:
+    trend: 30          # EMA alignment weight
+    structure: 25      # BOS detection weight
+    liquidity: 20      # Liquidity sweep weight
+    momentum: 15       # RSI weight
+    session: 10        # In active session weight
+
+# ── Risk Management ───────────────────────────────────────────────
+risk:
+  # HARD WHITELIST — only symbols that have passed the Phase 0 backtest gate
+  # (PF ≥ 1.2 AND MaxDD ≤ 20% over 2.5 years) are permitted to trade.
+  # Any symbol NOT in this list is blocked at order placement regardless of signal score.
+  # EURUSD: failed 2.5-year gate — permanently disabled until strategy is redesigned.
+  # AUDUSD / NZDUSD: pending sweep results (items 3/4 above) — blocked until confirmed.
+  validated_symbols:
+    - XAUUSD
+    - GBPUSD
+  risk_pct_per_trade: 1.0       # % of account balance to risk per trade
+  max_open_trades: 1            # Global max open positions (all pairs combined)
+  max_trades_per_day: 5         # Max new trades opened per calendar day
+  daily_loss_limit_pct: 2.0     # Stop trading if day's loss exceeds X% of balance (= 2 full SL hits at 1% risk each)
+  weekly_loss_limit_pct: 8.0    # Stop trading if week's loss exceeds X% of balance
+
+  sl_atr_multiplier: 1.8        # SL = ATR(14) × this multiplier (optimized from 1.5 -> allows breathing room)
+  tp_risk_reward: 2.0           # TP = SL × this ratio (2:1 by default)
+  atr_period: 14
+
+  break_even:
+    enabled: true
+    trigger_rr: 1.0             # Move SL to entry once price moves 1× risk in profit
+
+  trailing_stop:
+    enabled: true
+    trigger_rr: 1.5             # Start trailing once 1.5× risk in profit
+    trail_atr_multiplier: 1.0   # Trail by 1× ATR
+
+  # Max spread filter per symbol (in pips). Skip entry if spread exceeds this.
+  max_spread_pips:
+    XAUUSD: 30.0                # XAUUSD spread is in 0.01 USD increments (100 pips = $1)
+    EURUSD: 2.0
+    GBPUSD: 2.5
+
+  # Hard safety ceiling: maximum lot size allowed to be placed per symbol.
+  # If the calculated lot size exceeds this, the order is blocked and emergency stop is triggered.
+  max_lot_size_per_symbol:
+    XAUUSD: 10.0
+    EURUSD: 15.0
+    GBPUSD: 15.0
+    NZDUSD: 15.0
+
+  # USD exposure guard: max total notional USD exposure across all open positions
+  max_usd_exposure: 50000       # In USD notional
+
+# ── Database ──────────────────────────────────────────────────────
+database:
+  pool_size: 5
+  pool_recycle: 3600
+
+# ── Telegram ──────────────────────────────────────────────────────
+telegram:
+  heartbeat_hour: 8             # Hour (broker server time) to send daily heartbeat
+  enabled: true
+
+# ── Telegram Signal Channel (public broadcast) ────────────────────
+# Same bot token as above — different destination chat ID.
+# Set channel_id to a group/channel chat ID (negative number for groups).
+# Private operational alerts (heartbeat, errors, emergency stop, summaries)
+# are NEVER sent here — only trade opened and trade closed signals.
+telegram_signals:
+  enabled: true                 # Master toggle — set true once channel_id is configured
+  channel_id: "-5547041827"    # Haris Khan and Harryfx group
+  include_score: true           # Show confidence score in public signal
+  include_session: true         # Show London/NY/Overlap session label
+  include_commentary: false     # Show AI one-liner explanation (requires AI enabled)
+  signal_only_mode: false       # Future use: post signal to channel but skip order execution
+
+# ── Backtesting (Phase 0) ─────────────────────────────────────────
+backtest:
+  commission_per_lot: 7.0       # USD per lot per side (Vantage FX typical)
+  slippage_pips: 0.5            # Simulated slippage on fills
+  initial_balance: 10000        # Starting balance for backtest
+  min_profit_factor: 1.2        # Gate to proceed to Phase 2+
+  max_drawdown_pct: 20.0        # Gate — if exceeded, must re-tune before proceeding

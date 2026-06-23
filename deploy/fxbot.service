@@ -1,0 +1,26 @@
+[Unit]
+Description=FX Auto-Trading Bot
+After=network.target mysql.service
+Wants=mysql.service
+
+[Service]
+Type=simple
+User=fxbot
+WorkingDirectory=/opt/fxbot
+ExecStart=/opt/fxbot/.venv/bin/python main.py
+Restart=always
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=fxbot
+
+# Wine environment for MT5
+Environment=WINEPREFIX=/home/fxbot/.wine_mt5
+Environment=DISPLAY=:99
+Environment=PYTHONUNBUFFERED=1
+
+# Resource limits
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,208 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_FXBOT_MYSQL",
+      "label": "FXBot MySQL",
+      "description": "MySQL connection to fxbot database",
+      "type": "datasource",
+      "pluginId": "mysql",
+      "pluginName": "MySQL"
+    }
+  ],
+  "__requires": [
+    {"type": "grafana", "id": "grafana", "name": "Grafana", "version": "9.0.0"},
+    {"type": "datasource", "id": "mysql", "name": "MySQL", "version": "1.0.0"},
+    {"type": "panel", "id": "graph", "name": "Graph", "version": ""},
+    {"type": "panel", "id": "stat", "name": "Stat", "version": ""},
+    {"type": "panel", "id": "bargauge", "name": "Bar gauge", "version": ""},
+    {"type": "panel", "id": "piechart", "name": "Pie chart", "version": ""},
+    {"type": "panel", "id": "table", "name": "Table", "version": ""}
+  ],
+  "annotations": {"list": []},
+  "description": "FX Auto-Trading Bot — Live Dashboard",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": "${DS_FXBOT_MYSQL}",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {"lineWidth": 2, "fillOpacity": 10}
+        }
+      },
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 0},
+      "id": 1,
+      "options": {"tooltip": {"mode": "multi"}},
+      "targets": [
+        {
+          "datasource": "${DS_FXBOT_MYSQL}",
+          "rawSql": "SELECT date AS time, ending_balance AS Balance FROM daily_stats WHERE ending_balance IS NOT NULL ORDER BY date",
+          "refId": "A",
+          "format": "time_series"
+        }
+      ],
+      "title": "📈 Equity Curve",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_FXBOT_MYSQL}",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "yellow", "value": 45},
+              {"color": "green", "value": 55}
+            ]
+          },
+          "unit": "percent",
+          "min": 0, "max": 100
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 8},
+      "id": 2,
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "orientation": "auto", "textMode": "auto", "colorMode": "background"},
+      "targets": [
+        {
+          "datasource": "${DS_FXBOT_MYSQL}",
+          "rawSql": "SELECT 100.0 * SUM(CASE WHEN pnl_usd > 0 THEN 1 ELSE 0 END) / COUNT(*) AS 'Win Rate %' FROM trade_history WHERE closed_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)",
+          "refId": "A",
+          "format": "table"
+        }
+      ],
+      "title": "🎯 Win Rate (30d)",
+      "type": "stat"
+    },
+    {
+      "datasource": "${DS_FXBOT_MYSQL}",
+      "fieldConfig": {
+        "defaults": {"color": {"mode": "thresholds"}, "unit": "currencyUSD"},
+        "overrides": []
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 8},
+      "id": 3,
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background"},
+      "targets": [
+        {
+          "datasource": "${DS_FXBOT_MYSQL}",
+          "rawSql": "SELECT SUM(pnl_usd) AS 'Net P&L' FROM trade_history WHERE closed_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)",
+          "refId": "A",
+          "format": "table"
+        }
+      ],
+      "title": "💰 Net P&L (30d)",
+      "type": "stat"
+    },
+    {
+      "datasource": "${DS_FXBOT_MYSQL}",
+      "fieldConfig": {"defaults": {"unit": "none"}},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 8},
+      "id": 4,
+      "targets": [
+        {
+          "datasource": "${DS_FXBOT_MYSQL}",
+          "rawSql": "SELECT COUNT(*) AS 'Total Trades' FROM trade_history WHERE closed_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)",
+          "refId": "A",
+          "format": "table"
+        }
+      ],
+      "title": "📊 Total Trades (30d)",
+      "type": "stat"
+    },
+    {
+      "datasource": "${DS_FXBOT_MYSQL}",
+      "fieldConfig": {"defaults": {"unit": "none"}},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 8},
+      "id": 5,
+      "targets": [
+        {
+          "datasource": "${DS_FXBOT_MYSQL}",
+          "rawSql": "SELECT COUNT(*) AS 'Open Trades' FROM trades WHERE status = 'OPEN'",
+          "refId": "A",
+          "format": "table"
+        }
+      ],
+      "title": "🔴 Open Trades",
+      "type": "stat"
+    },
+    {
+      "datasource": "${DS_FXBOT_MYSQL}",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "fixed", "fixedColor": "blue"},
+          "custom": {"lineWidth": 1}
+        },
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "pnl_usd"},
+           "properties": [
+             {"id": "color", "value": {"mode": "thresholds"}},
+             {"id": "thresholds", "value": {"steps": [{"color": "red", "value": null}, {"color": "green", "value": 0}]}}
+           ]}
+        ]
+      },
+      "gridPos": {"h": 8, "w": 16, "x": 0, "y": 12},
+      "id": 6,
+      "targets": [
+        {
+          "datasource": "${DS_FXBOT_MYSQL}",
+          "rawSql": "SELECT date AS time, pnl_usd FROM daily_stats ORDER BY date",
+          "refId": "A",
+          "format": "time_series"
+        }
+      ],
+      "title": "📅 Daily P&L",
+      "type": "barchart"
+    },
+    {
+      "datasource": "${DS_FXBOT_MYSQL}",
+      "fieldConfig": {"defaults": {}},
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 12},
+      "id": 7,
+      "options": {"pieType": "donut", "legend": {"displayMode": "list", "placement": "right"}},
+      "targets": [
+        {
+          "datasource": "${DS_FXBOT_MYSQL}",
+          "rawSql": "SELECT symbol, COUNT(*) AS count FROM trade_history GROUP BY symbol",
+          "refId": "A",
+          "format": "table"
+        }
+      ],
+      "title": "🥧 Trades by Pair",
+      "type": "piechart"
+    },
+    {
+      "datasource": "${DS_FXBOT_MYSQL}",
+      "fieldConfig": {"defaults": {}},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 20},
+      "id": 8,
+      "options": {"showHeader": true},
+      "targets": [
+        {
+          "datasource": "${DS_FXBOT_MYSQL}",
+          "rawSql": "SELECT closed_at AS 'Closed', symbol AS 'Symbol', direction AS 'Dir', lot_size AS 'Lots', ROUND(pips, 1) AS 'Pips', ROUND(pnl_usd, 2) AS 'P&L', close_reason AS 'Reason', session AS 'Session' FROM trade_history ORDER BY closed_at DESC LIMIT 50",
+          "refId": "A",
+          "format": "table"
+        }
+      ],
+      "title": "📋 Recent Trades (last 50)",
+      "type": "table"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": ["forex", "trading", "demo"],
+  "templating": {"list": []},
+  "time": {"from": "now-30d", "to": "now"},
+  "timepicker": {},
+  "timezone": "utc",
+  "title": "FX Bot Dashboard",
+  "uid": "fxbot-main",
+  "version": 1
+}
